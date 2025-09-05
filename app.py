@@ -16,6 +16,8 @@ from flask import (
     url_for,
 )
 from markupsafe import Markup
+from markdown_it import MarkdownIt
+import bleach
 
 
 def create_app() -> Flask:
@@ -436,11 +438,57 @@ def create_app() -> Flask:
         return time.strftime("%Y-%m-%d %H:%M UTC", time.gmtime(ts))
 
     def nl2br(value: str) -> Markup:
-        # Expect input already escaped in templates (we use `| e | nl2br`)
-        return Markup((value or "").replace("\n", "<br>"))
+        """Render text with line breaks safely.
+
+        Input is expected to be already HTML-escaped in templates (we use `| e | nl2br`).
+        We then:
+        - Normalize newlines (\r\n/\r -> \n)
+        - Convert escaped `<br>` variants (e.g. `&lt;br&gt;`, `&lt;br/&gt;`, `&lt;br /&gt;`) into real <br>
+          so users who type literal `<br>` see a break, without allowing other HTML.
+        - Convert remaining newlines to `<br>`.
+        """
+        s = (value or "")
+        # Normalize Windows/Mac newlines
+        s = s.replace("\r\n", "\n").replace("\r", "\n")
+        # Allow only the <br> tag if it was typed literally (escaped by `|e|` earlier)
+        s = (
+            s.replace("&lt;br&gt;", "<br>")
+            .replace("&lt;br/&gt;", "<br>")
+            .replace("&lt;br /&gt;", "<br>")
+        )
+        # Convert newline characters to <br>
+        s = s.replace("\n", "<br>")
+        return Markup(s)
+
+    # Markdown renderer (commonmark + breaks)
+    md = MarkdownIt("commonmark", {
+        "breaks": True,  # newlines -> <br>
+    })
+
+    # Allowed tags/attributes for sanitization
+    _ALLOWED_TAGS = [
+        "p", "br", "strong", "em", "code", "pre", "blockquote",
+        "ul", "ol", "li", "a", "h1", "h2", "h3", "h4", "h5", "h6",
+    ]
+    _ALLOWED_ATTRS = {"a": ["href", "title", "rel"]}
+
+    def markdown_to_html(text: str) -> Markup:
+        raw = text or ""
+        # Render to HTML with Markdown
+        html = md.render(raw)
+        # Sanitize to prevent XSS
+        cleaned = bleach.clean(
+            html,
+            tags=_ALLOWED_TAGS,
+            attributes=_ALLOWED_ATTRS,
+            protocols=["http", "https", "mailto"],
+            strip=True,
+        )
+        return Markup(cleaned)
 
     app.jinja_env.filters["datetimeformat"] = datetimeformat
     app.jinja_env.filters["nl2br"] = nl2br
+    app.jinja_env.filters["markdown"] = markdown_to_html
 
     return app
 

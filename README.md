@@ -9,7 +9,3 @@ A tiny, fast forum designed to run well behind a Tor hidden service (.onion). No
 - CSRF token on forms
 - Pagination for threads and posts
 - Works well over Tor (.onion)
-
-## License
-
-GPL-3.0-only. See the `LICENSE` file for full terms.

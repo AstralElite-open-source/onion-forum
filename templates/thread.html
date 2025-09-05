@@ -19,7 +19,7 @@
           <strong class="author">{{ p['author'] or 'anon' }}</strong>
           <span class="time">{{ p['created_at'] | int | datetimeformat }}</span>
         </div>
-        <div class="content">{{ p['content'] | e | nl2br }}</div>
+  <div class="content">{{ p['content'] | markdown }}</div>
 
         {# Comments #}
         {% set cmts = comments_map.get(p['id'], []) %}
@@ -35,7 +35,7 @@
                   <strong>{{ c['author'] or 'anon' }}</strong>
                   <span class="time">{{ c['created_at'] | int | datetimeformat }}</span>
                 </div>
-                <div class="content">{{ c['content'] | e | nl2br }}</div>
+                <div class="content">{{ c['content'] | markdown }}</div>
               </li>
             {% endfor %}
           </ol>
@@ -79,7 +79,8 @@
         <input name="author" maxlength="32" placeholder="anon" />
       </label>
       <label>Message
-        <textarea name="content" rows="5" maxlength="5000" required></textarea>
+  <textarea name="content" rows="5" maxlength="5000" required></textarea>
+  <small>Supports Markdown. Newlines become line breaks.</small>
       </label>
       <button type="submit">Post reply</button>
     </form>
