@@ -58,8 +58,3 @@ forum.db
 *.sqlite3-journal
 data/
 instance/
-
-# Tor hidden service (if stored in repo path)
-hidden_service/
-tor/
-*.onion

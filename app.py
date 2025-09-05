@@ -19,6 +19,45 @@ from markupsafe import Markup
 from markdown_it import MarkdownIt
 import bleach
 
+def _get_persistent_secret() -> str:
+    """Return a stable secret key.
+
+    Priority:
+    1) SECRET_KEY env var if provided and non-empty.
+    2) Read from a file located alongside the database file (e.g., /data/secret_key).
+    3) Generate a new one, write it to that file, and use it.
+    If file operations fail, fall back to an in-memory random key (sessions will reset on restart).
+    """
+    sk = os.environ.get("SECRET_KEY", "").strip()
+    if sk:
+        return sk
+
+    db_path_str = os.environ.get("FORUM_DB_PATH", "forum.db")
+    try:
+        base = Path(db_path_str).parent if Path(db_path_str).parent else Path(".")
+        secret_file = base / "secret_key"
+        if secret_file.exists():
+            try:
+                return secret_file.read_text(encoding="utf-8").strip()
+            except Exception:
+                pass
+
+        # Generate and persist
+        new_sk = secrets.token_hex(32)
+        try:
+            base.mkdir(parents=True, exist_ok=True)
+            secret_file.write_text(new_sk, encoding="utf-8")
+            try:
+                os.chmod(secret_file, 0o600)  # best-effort
+            except Exception:
+                pass
+        except Exception:
+            # Could not persist; return volatile key
+            return new_sk
+        return new_sk
+    except Exception:
+        return secrets.token_hex(32)
+
 
 def create_app() -> Flask:
     app = Flask(
@@ -30,7 +69,7 @@ def create_app() -> Flask:
     # Configuration
     app.config.update(
         DATABASE=os.environ.get("FORUM_DB_PATH", "forum.db"),
-        SECRET_KEY=os.environ.get("SECRET_KEY") or secrets.token_hex(32),
+        SECRET_KEY=_get_persistent_secret(),
         MAX_CONTENT_LENGTH=256 * 1024,  # 256 KB per request
         TEMPLATES_AUTO_RELOAD=True,
     )
