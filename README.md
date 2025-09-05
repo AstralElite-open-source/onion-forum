@@ -22,7 +22,7 @@ Lightweight, no-login forum for Tor. Fast to deploy, minimal dependencies, works
 docker compose up --build -d
 ```
 
-1. Get your onion URL (open in Tor Browser):
+1. wait 60 second then , run command to get onion url:
 
 ```bash
 docker compose exec tor sh -lc 'cat /var/lib/tor/hidden_service/hostname'
